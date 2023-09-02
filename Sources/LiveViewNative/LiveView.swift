@@ -229,7 +229,7 @@ public struct LiveView<R: RootRegistry>: View {
     }
     
     private var navigationRoot: some View {
-        NavStackEntryView(.init(url: storage.session.url, coordinator: rootCoordinator))
+        NavStackEntryView(.init(url: storage.session.rootCoordinator.url, coordinator: rootCoordinator))
     }
 }
 
