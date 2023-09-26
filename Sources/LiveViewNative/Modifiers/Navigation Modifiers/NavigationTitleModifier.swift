@@ -56,6 +56,7 @@ enum NavigationTitleModifierKey: PreferenceKey {
     static var defaultValue: NavigationTitleModifier?
     
     static func reduce(value: inout NavigationTitleModifier?, nextValue: () -> NavigationTitleModifier?) {
-        value = nextValue().flatMap({ .init(title: $0.title, cached: true) }) ?? value
+        guard let newValue = nextValue() else { return }
+        value = .init(title: newValue.title, cached: true)
     }
 }
