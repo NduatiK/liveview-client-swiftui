@@ -9,7 +9,47 @@ defmodule LiveViewNativeSwiftUi.MixProject do
       description: "LiveView Native platform for SwiftUI",
       package: package(),
       start_permanent: Mix.env() == :prod,
-      deps: deps()
+      deps: deps(),
+
+      docs: [
+        main: "about",
+        extras: [
+          "guides/introduction/about.md",
+          "guides/architecture/architecture.md",
+          "guides/architecture/navigation.md",
+          "guides/architecture/updates.md",
+        ],
+        groups_for_extras: [
+          "Introduction": Path.wildcard("guides/introduction/*.md"),
+          "Architecture": Path.wildcard("guides/architecture/*.md"),
+        ],
+        before_closing_body_tag: %{
+          html: """
+          <script src="https://cdn.jsdelivr.net/npm/mermaid@10.2.3/dist/mermaid.min.js"></script>
+          <script>
+            document.addEventListener("DOMContentLoaded", function () {
+              mermaid.initialize({
+                startOnLoad: false,
+                theme: document.body.className.includes("dark") ? "dark" : "default"
+              });
+              let id = 0;
+              for (const codeEl of document.querySelectorAll("pre code.mermaid")) {
+                const preEl = codeEl.parentElement;
+                const graphDefinition = codeEl.textContent;
+                const graphEl = document.createElement("div");
+                const graphId = "mermaid-graph-" + id++;
+                mermaid.render(graphId, graphDefinition).then(({svg, bindFunctions}) => {
+                  graphEl.innerHTML = svg;
+                  bindFunctions?.(graphEl);
+                  preEl.insertAdjacentElement("afterend", graphEl);
+                  preEl.remove();
+                });
+              }
+            });
+          </script>
+          """
+        }
+      ]
     ]
   end
 
@@ -25,7 +65,10 @@ defmodule LiveViewNativeSwiftUi.MixProject do
     [
       {:jason, "~> 1.2"},
       {:ex_doc, ">= 0.0.0", only: :dev, runtime: false},
-      {:live_view_native_platform, "~> 0.1"}
+      {:live_view_native_platform, "~> 0.1"},
+
+      {:makeup_swift, "~> 0.0.1"},
+      {:makeup_json, "~> 0.1.0"},
     ]
   end
 
