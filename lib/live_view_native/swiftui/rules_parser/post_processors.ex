@@ -110,6 +110,10 @@ defmodule LiveViewNative.SwiftUI.RulesParser.PostProcessors do
     {:., [], [outer, inner]}
   end
 
+  def chain_ast(rest, [], context, {_line, _}, _byte_offset) do
+    {rest, [[]], context}
+  end
+
   def chain_ast(rest, sections, context, {_line, _}, _byte_offset) do
     sections = Enum.reduce(sections, &combine_chain_ast_parts/2)
 
@@ -152,6 +156,11 @@ defmodule LiveViewNative.SwiftUI.RulesParser.PostProcessors do
     {rest, [{Elixir, annotations, {:to_atom, variable_annotations, [variable]}}], context}
   end
 
+  # Ignore error case
+  def to_ime_function_call_ast(rest, _, context, {_line, _}, _byte_offset, _) do
+    {rest, [], context}
+  end
+
   def to_keyword_tuple_ast(rest, [arg1, arg2], context, {_line, _}, _byte_offset) do
     {rest, [{String.to_atom(arg2), arg1}], context}
   end
@@ -188,5 +197,15 @@ defmodule LiveViewNative.SwiftUI.RulesParser.PostProcessors do
   def to_swift_range_ast(rest, [end_, range, start], context, {line, _}, _byte_offset) do
     annotations = context_to_annotation(context.context, line)
     {rest, [{String.to_atom(range), annotations, [start, end_]}], context}
+  end
+
+  def to_number_variable_ast(rest, [{Elixir, variable_annotations, variable}], context, {line, _}, _byte_offset) do
+    annotations = context_to_annotation(context.context, line)
+    {rest, [{Elixir, annotations, {:to_number, variable_annotations, [variable]}}], context}
+  end
+
+  # Ignore error case
+  def to_number_variable_ast(rest, _, context, {_line, _}, _byte_offset) do
+    {rest, [], context}
   end
 end

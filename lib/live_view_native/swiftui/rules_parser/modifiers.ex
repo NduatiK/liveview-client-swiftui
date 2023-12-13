@@ -58,21 +58,21 @@ defmodule LiveViewNative.SwiftUI.RulesParser.Modifiers do
   end
 
   ime_function = fn is_initial ->
-    if is_initial do
-      empty()
-    else
-      ignore(string("."))
-    end
-    |> ignore(string("to_ime"))
+    # if is_initial do
+    #   empty()
+    # else
+    #   ignore(string("."))
+    # end
+    ignore(string(".#"))
     |> enclosed(
-      "(",
+      "{",
       variable(
         force_error?: true,
         error_message: "Expected a variable",
-        error_parser: non_whitespace(also_ignore: String.to_charlist(")"))
+        error_parser: non_whitespace(also_ignore: String.to_charlist("}"))
       )
       |> post_traverse({PostProcessors, :to_ime_function_call_ast, [is_initial]}),
-      ")",
+      "}",
       []
     )
   end
@@ -92,7 +92,7 @@ defmodule LiveViewNative.SwiftUI.RulesParser.Modifiers do
       # Scoped
       # Color.red
       scoped_ime,
-      # to_ime(color)
+      # .#{color}
       ime_function.(true),
       # Implicit
       # .red
@@ -101,7 +101,7 @@ defmodule LiveViewNative.SwiftUI.RulesParser.Modifiers do
     # scoped_ime
     |> repeat(
       choice([
-        # <other_ime>.to_ime(color)
+        # <other_ime>.#{color}
         ime_function.(false),
         # <other_ime>.red
         dotted_ime.(false)
@@ -109,6 +109,22 @@ defmodule LiveViewNative.SwiftUI.RulesParser.Modifiers do
     )
     |> post_traverse({PostProcessors, :chain_ast, []})
   )
+
+
+  defcombinator(
+    :number_variable,
+    ignore(string("#"))
+    |> enclosed(
+      "{",
+      variable(
+        force_error?: true,
+        error_message: "Expected a variable",
+        error_parser: non_whitespace(also_ignore: String.to_charlist("}"))
+      )
+      |> post_traverse({PostProcessors, :to_number_variable_ast, []}),
+      "}",
+      []
+    ))
 
   defcombinator(
     :attr,
@@ -179,6 +195,10 @@ defmodule LiveViewNative.SwiftUI.RulesParser.Modifiers do
         ~s'a number, string, nil, boolean or :atom'
       },
       {
+        parsec(:number_variable),
+        ~s'a number variable eg ‘\#{variable}’'
+      },
+      {
         parsec(:event),
         ~s'an event eg ‘event("search-event", throttle: 10_000)’'
       },
@@ -188,7 +208,7 @@ defmodule LiveViewNative.SwiftUI.RulesParser.Modifiers do
       },
       {
         parsec(:ime),
-        ~s'an IME eg ‘Color.red’ or ‘.largeTitle’ or ‘Color.to_ime(variable)’'
+        ~s'an IME eg ‘Color.red’ or ‘.largeTitle’ or ‘.\#{variable}’ or ‘Color.\#{variable}’'
       },
       {
         key_value_pairs(generate_error?: false, allow_empty?: false),

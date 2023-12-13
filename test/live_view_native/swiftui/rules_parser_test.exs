@@ -183,8 +183,8 @@ defmodule LiveViewNative.SwiftUI.RulesParserTest do
     end
 
     test "parses key/value pairs with helper calls" do
-      input = "foo(x: to_integer(value), y: 0)"
-      output = {:foo, [], [[{:x, {Elixir, [], {:to_integer, [], [{:value, [], Elixir}]}}}, {:y, 0}]]}
+      input = "foo(x: \#{value}, y: 0)"
+      output = {:foo, [], [[{:x, {Elixir, [], {:to_number, [], [{:value, [], Elixir}]}}}, {:y, 0}]]}
 
       assert parse(input) == output
     end
@@ -368,7 +368,7 @@ defmodule LiveViewNative.SwiftUI.RulesParserTest do
     end
 
     test "to_ime" do
-      input = "color(to_ime(color))"
+      input = "color(.\#{color})"
 
       output =
         {:color, [], [{:., [], [nil, {Elixir, [], {:to_atom, [], [{:color, [], Elixir}]}}]}]}
@@ -377,7 +377,7 @@ defmodule LiveViewNative.SwiftUI.RulesParserTest do
     end
 
     test "to_ime with chaining" do
-      input = "color(to_ime(color).foo)"
+      input = "color(.\#{color}.foo)"
 
       output =
         {:color, [],
@@ -387,7 +387,7 @@ defmodule LiveViewNative.SwiftUI.RulesParserTest do
     end
 
     test "to_ime in the middle of a chain" do
-      input = "color(Foo.to_ime(color).bar)"
+      input = "color(Foo.\#{color}.bar)"
 
       output = {:color, [], [{:., [], [:Foo, {:., [], [{Elixir, [], {:to_atom, [], [{:color, [], Elixir}]}}, :bar]}]}]}
 
@@ -397,7 +397,7 @@ defmodule LiveViewNative.SwiftUI.RulesParserTest do
     @tag :skip
     test "to_ime as a function call" do
       # for now I'm not sure how to implement the AST for this.
-      # input "color(foo.to_ime(color)(1).bar)"
+      # input "color(foo.\#{color}(1).bar)"
 
       # output = {:color, [], [{:., [], [:foo, {:., [], [{Elixir, [], {:to_ime, [], [{:color, [], Elixir}]}}, :bar]}]}]}
 
@@ -436,6 +436,30 @@ defmodule LiveViewNative.SwiftUI.RulesParserTest do
         {:color, [], [{:., [], [nil, :blue]}]}
       ]}
     end
+
+    test "can compile integer literals" do
+      output = MockSheet.compile_ast(["h-4"], target: :all)
+      
+      assert output == %{"h-4" => [
+        {:height, [], [4]}
+        ]}
+    end
+        
+    test "can compile float literals" do
+      output = MockSheet.compile_ast(["h-4.5"], target: :all)
+    
+      assert output == %{"h-4.5" => [
+        {:height, [], [4.5]}
+        ]}
+    end
+
+    test "does not raise when a string is passed into the number literal sytax" do
+      output = MockSheet.compile_ast(["h-abc"], target: :all)
+
+      assert output == %{"h-abc" => [
+        {:height, [], ["abc"]}
+      ]}
+    end
   end
 
   describe "error reporting" do
@@ -468,9 +492,10 @@ defmodule LiveViewNative.SwiftUI.RulesParserTest do
         Expected ‘()’ or ‘(<modifier_arguments>)’ where <modifier_arguments> are a comma separated list of:
          - a Swift range eg ‘1..<10’ or ‘foo(Foo.bar...Baz.qux)’
          - a number, string, nil, boolean or :atom
+         - a number variable eg ‘\#{variable}’
          - an event eg ‘event(\"search-event\", throttle: 10_000)’
          - an attribute eg ‘attr(\"placeholder\")’
-         - an IME eg ‘Color.red’ or ‘.largeTitle’ or ‘Color.to_ime(variable)’
+         - an IME eg ‘Color.red’ or ‘.largeTitle’ or ‘.\#{variable}’ or ‘Color.\#{variable}’
          - a list of keyword pairs eg ‘style: :dashed’, ‘size: 12’ or  ‘style: [lineWidth: 1]’
          - a helper function eg ‘to_float(variable)’
          - a modifier eg ‘bold()’
@@ -730,9 +755,10 @@ defmodule LiveViewNative.SwiftUI.RulesParserTest do
         Expected one of the following:
          - a Swift range eg ‘1..<10’ or ‘foo(Foo.bar...Baz.qux)’
          - a number, string, nil, boolean or :atom
+         - a number variable eg ‘\#{variable}’
          - an event eg ‘event("search-event", throttle: 10_000)’
          - an attribute eg ‘attr("placeholder")’
-         - an IME eg ‘Color.red’ or ‘.largeTitle’ or ‘Color.to_ime(variable)’
+         - an IME eg ‘Color.red’ or ‘.largeTitle’ or ‘.\#{variable}’ or ‘Color.\#{variable}’
          - a list of keyword pairs eg ‘style: :dashed’, ‘size: 12’ or  ‘style: [lineWidth: 1]’
          - a helper function eg ‘to_float(variable)’
          - a modifier eg ‘bold()’
@@ -829,6 +855,52 @@ defmodule LiveViewNative.SwiftUI.RulesParserTest do
           |
 
         ‘attr’ expects a string argument
+        """
+        |> String.trim()
+
+      assert String.trim(error.description) == error_prefix
+    end
+
+    test "non-variable in \#{variable} sytax" do
+      input = "foo(\#{1})"
+
+      error =
+        assert_raise SyntaxError, fn ->
+          parse(input)
+        end
+
+      error_prefix =
+        """
+        Unsupported input:
+          |
+        1 | foo(\#{1})
+          |       ^
+          |
+
+        expected a variable
+        """
+        |> String.trim()
+
+      assert String.trim(error.description) == error_prefix
+    end
+
+    test "non-variable in ime syntax (.\#{variable})" do
+      input = "foo(.\#{1})"
+
+      error =
+        assert_raise SyntaxError, fn ->
+          parse(input)
+        end
+
+      error_prefix =
+        """
+        Unsupported input:
+          |
+        1 | foo(.\#{1})
+          |        ^
+          |
+
+        expected a variable
         """
         |> String.trim()
 
