@@ -58,11 +58,6 @@ defmodule LiveViewNative.SwiftUI.RulesParser.Modifiers do
   end
 
   ime_function = fn is_initial ->
-    # if is_initial do
-    #   empty()
-    # else
-    #   ignore(string("."))
-    # end
     ignore(string(".#"))
     |> enclosed(
       "{",
